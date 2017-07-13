@@ -93,7 +93,7 @@ static void demo_mic(const char* session_begin_params)
 		printf("start listen failed %d\n", errcode);
 	}
 	/* demo 15 seconds recording */
-	while(i++ < 10)
+	while(i++ < 3)
 		sleep(1);
 	errcode = sr_stop_listening(&iat);
 	if (errcode) {
@@ -101,23 +101,21 @@ static void demo_mic(const char* session_begin_params)
 	}
 	sr_uninit(&iat);
 }
-
+/* global variables for interrupt status */
 volatile int isr_flag = 0;
 
+/* wiringPi interrupt callback */
 void isr_cb(){
 	printf("interrupt happy...\n");
 	isr_flag = 1;
 }
 
-void isr_record(){	
- 	const char* session_begin_params =
- 		"sub = iat, domain = iat, language = zh_cn, "
- 		"accent = mandarin, sample_rate = 16000, "
- 		"result_type = plain, result_encoding = utf8";
-
-	printf("Speak in 15 seconds\n");
- 	demo_mic(session_begin_params);
- 	printf("15 sec passed\n");
+/* wiringPi interrupt init */
+void isr_setup(){
+	wiringPiSetup();
+	pinMode(6, INPUT);
+	pullUpDnControl(6, PUD_UP);
+	wiringPiISR(6, INT_EDGE_FALLING, isr_cb);
 }
 
 /* main thread: start/stop record ; query the result of recgonization.
@@ -125,11 +123,7 @@ void isr_record(){
  * helper thread: ui(keystroke detection)
  */
  int main(int argc, char* argv[])
- {
-	wiringPiSetup();
-	pinMode(6, INPUT);
-	pullUpDnControl(6, PUD_UP);
-	
+ {	
  	int ret = MSP_SUCCESS;
  	/* login params, please do keep the appid correct */
  	const char* login_params = "appid = 58cbfb41, work_dir = .";
@@ -151,14 +145,12 @@ void isr_record(){
  		goto exit; // login fail, exit the program
  	}
 	
-	wiringPiISR(6,INT_EDGE_FALLING,isr_cb);
+	isr_setup();	
+
 	while(1){
-	//	wiringPiISR(6,INT_EDGE_FALLING,isr_cb);
 		if(isr_flag){
 			isr_flag = 0;
-			printf("Speak in 15 seconds\n");
 			demo_mic(session_begin_params);
-			printf("15 sec passed\n");
 		}
 	}
 /*

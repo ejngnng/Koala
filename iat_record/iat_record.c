@@ -11,13 +11,7 @@
 #include "msp_errors.h"
 #include "speech_recognizer.h"
 
-#include <poll.h>
-#include <fcntl.h>
-
-#define GPIO_FN_MAXLEN	32
-#define POLL_TIMEOUT	0
-#define RDBUF_LEN	5
-
+#include <wiringPi.h>
 
 #define FRAME_LEN	640 
 #define	BUFFER_SIZE	4096
@@ -99,7 +93,7 @@ static void demo_mic(const char* session_begin_params)
 		printf("start listen failed %d\n", errcode);
 	}
 	/* demo 15 seconds recording */
-	while(i++ < 30)
+	while(i++ < 10)
 		sleep(1);
 	errcode = sr_stop_listening(&iat);
 	if (errcode) {
@@ -108,6 +102,23 @@ static void demo_mic(const char* session_begin_params)
 	sr_uninit(&iat);
 }
 
+volatile int isr_flag = 0;
+
+void isr_cb(){
+	printf("interrupt happy...\n");
+	isr_flag = 1;
+}
+
+void isr_record(){	
+ 	const char* session_begin_params =
+ 		"sub = iat, domain = iat, language = zh_cn, "
+ 		"accent = mandarin, sample_rate = 16000, "
+ 		"result_type = plain, result_encoding = utf8";
+
+	printf("Speak in 15 seconds\n");
+ 	demo_mic(session_begin_params);
+ 	printf("15 sec passed\n");
+}
 
 /* main thread: start/stop record ; query the result of recgonization.
  * record thread: record callback(data write)
@@ -115,6 +126,10 @@ static void demo_mic(const char* session_begin_params)
  */
  int main(int argc, char* argv[])
  {
+	wiringPiSetup();
+	pinMode(6, INPUT);
+	pullUpDnControl(6, PUD_UP);
+	
  	int ret = MSP_SUCCESS;
  	/* login params, please do keep the appid correct */
  	const char* login_params = "appid = 58cbfb41, work_dir = .";
@@ -135,16 +150,24 @@ static void demo_mic(const char* session_begin_params)
  		printf("MSPLogin failed , Error code %d.\n",ret);
  		goto exit; // login fail, exit the program
  	}
-
- 	printf("Speak in 15 seconds\n");
-
+	
+	wiringPiISR(6,INT_EDGE_FALLING,isr_cb);
+	while(1){
+	//	wiringPiISR(6,INT_EDGE_FALLING,isr_cb);
+		if(isr_flag){
+			isr_flag = 0;
+			printf("Speak in 15 seconds\n");
+			demo_mic(session_begin_params);
+			printf("15 sec passed\n");
+		}
+	}
+/*
+	printf("Speak in 15 seconds\n");
  	demo_mic(session_begin_params);
-
  	printf("15 sec passed\n");
-
+*/
  exit:
  	MSPLogout(); // Logout...
-
  	return 0;
 }
 

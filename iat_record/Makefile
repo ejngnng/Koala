@@ -17,7 +17,7 @@ else
 LDFLAGS := -L$(DIR_LIB)/x86 
 endif
 
-LDFLAGS += -lmsc -lrt -ldl -lpthread -lasound
+LDFLAGS += -lmsc -lrt -ldl -lpthread -lasound -lwiringPi
 
 OBJECTS := $(patsubst %.c,%.o,$(wildcard *.c))
 

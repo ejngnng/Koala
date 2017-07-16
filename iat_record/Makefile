@@ -1,28 +1,48 @@
 #common makefile header
 
-DIR_INC = ../include
 DIR_BIN = ../bin
 DIR_LIB = ../libs
 
-TARGET	= iat_record
+ASR_CFLAGS = -I../include/asr
+ASR_LDFLAGS := -L$(DIR_LIB) -lmsc -lrt -ldl -lpthread -lwiringPi -lasound
+
+
+MQTT_VERSION := 1.4.11
+#MQTT_VERSION := 0.15
+
+GLIB2_CFLAGS = $(shell pkg-config --cflags glib-2.0 gobject-2.0 gthread-2.0 gssdp-1.0)
+GLIB2_LDFLAGS = $(shell pkg-config --libs glib-2.0 gobject-2.0 gthread-2.0 gssdp-1.0)
+
+MQTT_CFLAGS  = -DVERSION="\"$(MQTT_VERSION)\""
+MQTT_LDFLAGS = -lmosquitto
+
+ASR_PARSE_CFLAGS  = -I../include/asr_parse
+ASR_PARSE_LDFLAGS = -L$(DIR_LIB) -lsemantic
+
+
+CFLAGS := -Wall -g -fPIC \
+        $(ASR_CFLAGS) $(GLIB2_CFLAGS) $(MQTT_CFLAGS) $(ASR_PARSE_CFLAGS) \
+        -I./mqtt_client -I../include
+LDFLAGS := $(ASR_LDFLAGS) $(GLIB2_LDFLAGS) $(MQTT_LDFLAGS) $(ASR_PARSE_LDFLAGS)
+
+
+
+TARGET	= asr 
 BIN_TARGET = $(DIR_BIN)/$(TARGET)
 
-CROSS_COMPILE = 
-CFLAGS = -g -Wall -I$(DIR_INC)
+SRC := $(wildcard *.c) $(wildcard mqtt_client/*.c) $(wildcard mqtt_client/mosquitto-$(MQTT_VERSION)/*.c)
+OBJECTS := $(patsubst %.c,%.o, $(SRC))
 
-LDFLAGS := -L$(DIR_LIB)/pi 
-
-LDFLAGS += -lmsc -lrt -ldl -lpthread -lasound -lwiringPi
-
-OBJECTS := $(patsubst %.c,%.o,$(wildcard *.c))
-
-$(BIN_TARGET) : $(OBJECTS)
-	$(CROSS_COMPILE)gcc $(CFLAGS) $^ -o $@ $(LDFLAGS)
+$(TARGET) : $(OBJECTS)
+	gcc $(CFLAGS) $^ -o $@ $(LDFLAGS)
+	@cp $(TARGET) $(DIR_BIN)
 
 %.o : %.c
-	$(CROSS_COMPILE)gcc -c $(CFLAGS) $< -o $@
+	gcc -c $(CFLAGS) $< -o $@
+
+
 clean:
-	@rm -f *.o $(BIN_TARGET)
+	@rm -f $(OBJECTS) $(TARGET) $(BIN_TARGET)
 
 .PHONY:clean
 

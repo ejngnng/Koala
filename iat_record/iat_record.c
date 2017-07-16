@@ -12,6 +12,7 @@
 #include "speech_recognizer.h"
 
 #include <wiringPi.h>
+#include "operation.h"
 
 #define FRAME_LEN	640 
 #define	BUFFER_SIZE	4096
@@ -43,6 +44,7 @@ void on_result(const char *result, char is_last)
 		}
 		strncat(g_result, result, size);
 		show_result(g_result, is_last);
+		parse_and_operation(result);
 	}
 }
 void on_speech_begin()

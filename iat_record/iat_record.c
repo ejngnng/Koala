@@ -1,5 +1,8 @@
 /*
-* 语音听写(iFly Auto Transform)技术能够实时地将语音转换成对应的文字。
+* Description: record from mic use ALSA api
+* 
+* Author: ninja
+*
 */
 
 #include <stdlib.h>
@@ -11,8 +14,13 @@
 #include "msp_errors.h"
 #include "speech_recognizer.h"
 
+/* interrupt and operation after asr */
 #include <wiringPi.h>
 #include "operation.h"
+
+/* global variables for interrupt */
+volatile int isr_flag = 0;
+int isr_pin = 6; // BCM GPIO 25
 
 #define FRAME_LEN	640 
 #define	BUFFER_SIZE	4096
@@ -42,8 +50,8 @@ void on_result(const char *result, char is_last)
 				return;
 			}
 		}
-		strncat(g_result, result, size);
-		show_result(g_result, is_last);
+//		strncat(g_result, result, size);
+//		show_result(g_result, is_last);
 		parse_and_operation(result);
 	}
 }
@@ -103,8 +111,6 @@ static void demo_mic(const char* session_begin_params)
 	}
 	sr_uninit(&iat);
 }
-/* global variables for interrupt status */
-volatile int isr_flag = 0;
 
 /* wiringPi interrupt callback */
 void isr_cb(){
@@ -114,15 +120,17 @@ void isr_cb(){
 
 /* wiringPi interrupt init */
 void isr_setup(){
+
 	wiringPiSetup();
-	pinMode(6, INPUT);
-	pullUpDnControl(6, PUD_UP);
-	wiringPiISR(6, INT_EDGE_FALLING, isr_cb);
+	pinMode(isr_pin, INPUT);
+	pullUpDnControl(isr_pin, PUD_UP);
+	wiringPiISR(isr_pin, INT_EDGE_FALLING, isr_cb);
+
 }
 
-/* main thread: start/stop record ; query the result of recgonization.
+/*
+ * main thread: start/stop record ; query the result of recgonization.
  * record thread: record callback(data write)
- * helper thread: ui(keystroke detection)
  */
  int main(int argc, char* argv[])
  {	
@@ -155,12 +163,8 @@ void isr_setup(){
 			demo_mic(session_begin_params);
 		}
 	}
-/*
-	printf("Speak in 15 seconds\n");
- 	demo_mic(session_begin_params);
- 	printf("15 sec passed\n");
-*/
- exit:
+
+exit:
  	MSPLogout(); // Logout...
  	return 0;
 }
